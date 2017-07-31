@@ -1,17 +1,19 @@
+import csv
+import numpy as np
+from sklearn.utils import shuffle
+from sklearn.model_selection import train_test_split
+import warnings
+# xgboost <= 0.6a2 shows a warning when used with scikit-learn 0.18+
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+import xgboost as xgb
+import pandas as pd
+from sklearn.feature_extraction import DictVectorizer
+from sklearn.pipeline import make_pipeline
+from sklearn.model_selection import cross_val_score
 
-import numpy as np # linear algebra
-import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
-from pandas import Series,DataFrame
-import matplotlib.pyplot as plt
-import seaborn as sns
-sns.set_style('whitegrid')
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC, LinearSVC
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.naive_bayes import GaussianNB
+data_train = pd.read_csv("train.csv")
+data_test = pd.read_csv("test.csv")
 
-#isolates the title from the rest of the names
 def changeNames(data):
     for i in range(len(data['Name'])):
         name = data['Name'][i]
@@ -25,10 +27,6 @@ def changeNames(data):
         else:
             data['Name'][i] = 0
 
-data_train = pd.read_csv("train.csv")
-data_test = pd.read_csv("test.csv")
-
-#Maps titles to integers in order of survived probability
 changeNames(data_train)
 changeNames(data_test)
 data_train['Name'] = data_train['Name'].astype(int)
@@ -82,37 +80,24 @@ data_test['Person'] = data_test['Person'].map({'male': 0, 'child': 1,'female': 2
 data_train = data_train.drop(['PassengerId','Ticket','Cabin','SibSp','Parch','Age','Sex'], axis=1)
 data_test = data_test.drop(['PassengerId','Ticket','Cabin','SibSp','Parch','Age','Sex'], axis=1)
 
-
-print("Training data")
-print("_____________")
-for col in list(data_train):
-    print (col, ":", data_train[col].isnull().sum())
-print("Test data")
-print("_____________")
-for col in list(data_test):
-    print (col, ":", data_test[col].isnull().sum())
-
-
 X_train = data_train.drop(['Survived'], axis=1)
 Y_train = data_train['Survived']
 X_test  = data_test.copy()
-'''
-random_forest = RandomForestClassifier(n_estimators=100)
-random_forest.fit(X_train, Y_train)
-Y_pred = random_forest.predict(X_test)
-random_forest.score(X_train, Y_train)
-'''
 
-knn = KNeighborsClassifier(n_neighbors = 3)
-knn.fit(X_train, Y_train)
-Y_pred = knn.predict(X_test)
-knn.score(X_train, Y_train)
+class CSCTransformer:
+    def transform(self, xs):
+        # work around https://github.com/dmlc/xgboost/issues/1238#issuecomment-243872543
+        return xs.tocsc()
+    def fit(self, *args):
+        return self
 
-'''
-svc = SVC()
-svc.fit(X_train, Y_train)
-Y_pred = svc.predict(X_test)
-svc.score(X_train, Y_train)
-'''
-with open('pred.csv','wb') as file:
-    np.savetxt(file,Y_pred,delimiter=',')
+clf = xgb.XGBClassifier()
+vec = DictVectorizer()
+pipeline = make_pipeline(vec, CSCTransformer(), clf)
+
+def evaluate(_clf):
+    _clf.fit(X_train, Y_train)  # so that parts of the original pipeline are fitted
+
+evaluate(pipeline)
+y = pipeline.predict(X_test)
+print(y)
