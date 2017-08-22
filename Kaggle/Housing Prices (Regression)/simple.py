@@ -13,8 +13,11 @@ from scipy.stats.stats import pearsonr
 
 data_train = pd.read_csv('train.csv')
 data_test = pd.read_csv('test.csv')
-data_train = data_train.drop(['Id','Street','PoolQC','MiscFeature','Alley','Fence','FireplaceQu'],axis=1)
-data_test = data_test.drop(['Id','Street','PoolQC','MiscFeature','Alley','Fence','FireplaceQu'],axis=1)
+data_train = data_train.drop(['Id','Street','MiscFeature','Alley','Fence'],axis=1)
+data_test = data_test.drop(['Id','Street','MiscFeature','Alley','Fence'],axis=1)
+
+data_train = data_train.drop(data_train[(data_train['GrLivArea']>4000) & (data_train['SalePrice']<300000)].index)
+
 
 def cat_subclass(mssub):
     temp = int(mssub)
@@ -59,39 +62,88 @@ def cat_contour(cont):
 data_train['LandContour'] = data_train['LandContour'].apply(cat_contour).astype(int)
 data_test['LandContour'] = data_test['LandContour'].apply(cat_contour).astype(int)
 
-#Neighborhood Cat might not help
-neighMap = {'NoRidge':5,
-            'NridgHt':5,
-            'StoneBr':5,
-            'Veenker':4,
-            'Crawfor':4,
-            'Somerst':4,
-            'Timber':4,
-            'ClearCr':4,
-            'CollgCr':3,
-            'NWAmes':3,
-            'SawyerW':3,
-            'Gilbert':3,
-            'Blmngtn':3,
-            'Mitchel':2,
-            'NAmes':2,
-            'NPkVill':2,
-            'SWISU':2,
-            'Blueste':2,
-            'OldTown':1,
-            'BrkSide':1,
-            'Sawyer':2,
-            'Edwards':1,
-            'IDOTRR':0,
-            'MeadowV':0,
-            'BrBale':0}
-def cat_neigh(neigh):
-    if neigh in neighMap.keys():
-        return neighMap.get(neigh)
+
+
+def cat_type(bldg):
+    if bldg == '1Fam' or bldg == 'TwnhsE':
+        return 2
+    elif bldg != '':
+        return 0
     else:
+        return 1
+data_train['BldgType'] = data_train['BldgType'].apply(cat_type).astype(int)
+data_test['BldgType'] = data_test['BldgType'].apply(cat_type).astype(int)
+
+def cat_masvnr(mas):
+    if mas == 'Stone':
+        return 2
+    elif mas == 'BrkFace':
+        return 1
+    else:
+        return 0
+data_train['MasVnrType'] = data_train['MasVnrType'].apply(cat_masvnr).astype(int)
+data_test['MasVnrType'] = data_test['MasVnrType'].apply(cat_masvnr).astype(int)
+
+map_qualna = {'Ex':5, 'Gd':4, 'TA':3, 'Fa':2, 'Po':1, 'NA':0}
+map_qual = {'Ex':5, 'Gd':4, 'TA':3, 'Fa':2, 'Po':1, 'NA':2}
+data_train['ExterQual'] = data_train['ExterQual'].map(map_qual).astype(int)
+data_test['ExterQual'] = data_test['ExterQual'].map(map_qual).astype(int)
+
+data_train['BsmtCond'] = data_train['BsmtCond'].fillna('NA')
+data_test['BsmtCond'] = data_test['BsmtCond'].fillna('NA')
+data_train['BsmtQual'] = data_train['BsmtQual'].fillna('NA')
+data_test['BsmtQual'] = data_test['BsmtQual'].fillna('NA')
+
+data_train['BsmtCond'] = data_train['BsmtCond'].map(map_qual).astype(int)
+data_test['BsmtCond'] = data_test['BsmtCond'].map(map_qual).astype(int)
+data_train['BsmtQual'] = data_train['BsmtQual'].map(map_qualna).astype(int)
+data_test['BsmtQual'] = data_test['BsmtQual'].map(map_qualna).astype(int)
+
+
+data_train['BsmtFinType1'] = data_train['BsmtFinType1'].fillna('NA')
+data_test['BsmtFinType1'] = data_test['BsmtFinType1'].fillna('NA')
+def cat_bsmtfin1(type):
+    if type == 'GLQ':
         return 3
-data_train['Neighborhood'] = data_train['Neighborhood'].apply(cat_neigh).astype(int)
-data_test['Neighborhood'] = data_test['Neighborhood'].apply(cat_neigh).astype(int)
+    elif type == 'ALQ' or type == 'Unf':
+        return 2
+    elif type == 'NA':
+        return 0
+    else:
+        return 1
+data_train['BsmtFinType1'] = data_train['BsmtFinType1'].apply(cat_bsmtfin1).astype(int)
+data_test['BsmtFinType1'] = data_test['BsmtFinType1'].apply(cat_bsmtfin1).astype(int)
+
+
+def cat_poolqc(qual):
+    if qual == 'Ex':
+        return 2;
+    elif qual == 'None':
+        return 0;
+    else:
+        return 1;
+data_train['PoolQC'] = data_train['PoolQC'].fillna("None")
+data_test['PoolQC'] = data_test['PoolQC'].fillna("None")
+data_train['PoolQC'] = data_train['PoolQC'].apply(cat_poolqc).astype(int)
+data_test['PoolQC'] = data_test['PoolQC'].apply(cat_poolqc).astype(int)
+
+
+def cat_paved(pave):
+    if pave == 'Y':
+        return 2;
+    elif pave == 'N':
+        return 0;
+    else:
+        return 1;
+data_train['PavedDrive'] = data_train['PavedDrive'].apply(cat_paved).astype(int)
+data_test['PavedDrive'] = data_test['PavedDrive'].apply(cat_paved).astype(int)
+
+map_qualFP = {'Ex':5, 'Gd':4, 'TA':3, 'Fa':2, 'Po':1, 'NA':1}
+data_train['FireplaceQu'] = data_train['FireplaceQu'].fillna("NA")
+data_test['FireplaceQu'] = data_test['FireplaceQu'].fillna("NA")
+data_train['FireplaceQu'] = data_train['FireplaceQu'].map(map_qualFP).astype(int)
+data_test['FireplaceQu'] = data_test['FireplaceQu'].map(map_qualFP).astype(int)
+
 
 print("Training data")
 print("_____________")
@@ -104,7 +156,6 @@ for col in list(data_test):
 
 all_data = pd.concat((data_train.loc[:,'MSSubClass':'SaleCondition'],
                       data_test.loc[:,'MSSubClass':'SaleCondition']))
-
 
 data_train['SalePrice'] = np.log1p(data_train['SalePrice'])
 
